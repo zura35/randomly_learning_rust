@@ -9,21 +9,21 @@ pub struct StateMachine {
     registry: HashMap<String, HashSet<String>>,
 }
 
+const EMPTY_STATE: &str = "empty";
+
 impl StateMachine {
     pub fn new() -> Self {
-        let empty_state: String = String::from("EMPTY");
-
         StateMachine {
-            state: empty_state.clone(),
-            start: empty_state.clone(),
-            end: empty_state.clone(),
+            state: EMPTY_STATE.to_string(),
+            start: EMPTY_STATE.to_string(),
+            end: EMPTY_STATE.to_string(),
             registry: HashMap::new(),
         }
     }
 
     pub fn set_start(&mut self, start: &str) {
         self.start = start.to_string();
-        if self.state == "EMPTY" {
+        if self.state == EMPTY_STATE {
             self.state = start.to_string();
         }
     }
