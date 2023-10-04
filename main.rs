@@ -9,8 +9,6 @@ use std::time::Duration;
 use std::thread;
 use std::thread::sleep;
 
-use std::sync::{Arc, Barrier};
-
 fn main() {
     run_state_machine_example();
     run_job_handler_example();
