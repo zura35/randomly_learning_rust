@@ -2,16 +2,18 @@ mod state_machine;
 use crate::state_machine::StateMachine;
 
 mod job;
-use crate::job::Handler;
+use crate::job::simple_handler::SimpleHandler;
 use crate::job::sample::{GreeterJob, SumJob};
 
 use std::time::Duration;
 use std::thread;
 use std::thread::sleep;
 
+use std::sync::Arc;
+
 fn main() {
     run_state_machine_example();
-    run_job_handler_example();
+    run_simpler_handler_example();
 }
 
 fn run_state_machine_example() {
@@ -39,22 +41,27 @@ fn run_state_machine_example() {
     assert_eq!(m.state, started_str);
 }
 
-fn run_job_handler_example() {
-   let mut job_handler = Handler::new();
-   
-    // close the job queue after 5s
-    let mut enqueuer = job_handler.enqueuer();
+fn run_simpler_handler_example() {
+    // Shared references in Rust disallow mutation by default, and Arc is no exception: you cannot
+    // generally obtain a mutable reference to something inside an Arc. 
+    // 
+    // If you need to mutate through an Arc, use Mutex, RwLock, or one of the Atomic types.
+    let simple_handler = Arc::new(SimpleHandler::new());
+
+    // close the job queue after 3s
+    let cloned = simple_handler.clone();
     thread::spawn(move || {
-        println!("INFO: Closing job queue in 5s...");
-        sleep(Duration::from_secs(5));
+        let sec = 3;
+        println!("INFO: Closing job queue in {}s...", sec);
+        sleep(Duration::from_secs(sec));
         println!("INFO: Closing job queue");
-        enqueuer.close();
+        cloned.close();
     });
 
     // Job Handler logic
-    let mut job_listener = job_handler.listener();
+    let cloned = simple_handler.clone();
     let handler = thread::spawn(move || {
-        job_listener.listen();
+        cloned.listen();
     });
 
     // creates 5 greeter jobs
@@ -64,9 +71,9 @@ fn run_job_handler_example() {
             name: String::from(name),
         });
 
-        let mut enqueuer = job_handler.enqueuer();
+        let cloned = simple_handler.clone();
         thread::spawn(move || {
-            enqueuer.enqueue(job);
+            cloned.enqueue(job);
         });
     }
 
@@ -77,9 +84,9 @@ fn run_job_handler_example() {
             b: i + 1,
         });
 
-        let mut enqueuer = job_handler.enqueuer();
+        let cloned = simple_handler.clone();
         thread::spawn(move || {
-            enqueuer.enqueue(job);
+            cloned.enqueue(job);
         });
     }
 
