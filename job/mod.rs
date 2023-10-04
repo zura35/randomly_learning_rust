@@ -7,13 +7,12 @@ use std::thread::sleep;
 
 pub mod sample;
 
-pub trait Enqueuer {
-    fn enqueue(&mut self, job: Box<dyn JobInterface + Send + Sync>);
-    fn close(&mut self);
+pub struct Enqueuer {
+    queue_manager: Arc<QueueManager>,
 }
 
-pub trait Listener {
-    fn listen(&mut self);
+pub struct Listener {
+    queue_manager: Arc<QueueManager>,
 }
 
 pub trait JobInterface {
@@ -31,37 +30,39 @@ impl QueueManager {
     }
 }
 
-impl Enqueuer for Arc<QueueManager> {
-    fn enqueue(&mut self, job: Box<dyn JobInterface + Send + Sync>) {
-        if self.is_closed() {
+impl Enqueuer {
+    pub fn enqueue(&mut self, job: Box<dyn JobInterface + Send + Sync>) {
+        let queue_manager = &self.queue_manager;
+        if queue_manager.is_closed() {
             println!("ERR: Job queue is closed");
             return;
         }
 
-        self.queue.write().unwrap().push_back(job);
+        queue_manager.queue.write().unwrap().push_back(job);
         println!("INFO: Job enqueued");
     }
 
-    fn close(&mut self) {
-        *self.is_closed.write().unwrap() = true;
+    pub fn close(&mut self) {
+        *self.queue_manager.is_closed.write().unwrap() = true;
     }
 }
 
-impl Listener for Arc<QueueManager> {
-    fn listen(&mut self) {
+impl Listener {
+    pub fn listen(&mut self) {
+        let queue_manager = &self.queue_manager;
         loop {
-            if self.is_closed() {
+            if queue_manager.is_closed() {
                 println!("INFO: Job queue is closed, exiting");
                 break;
             }
 
-            if self.queue.read().unwrap().is_empty() {
+            if queue_manager.queue.read().unwrap().is_empty() {
                 sleep(Duration::from_millis(1000));
                 println!("INFO: Waiting for new job");
                 continue;
             }
 
-            if let Some(job) = self.queue.write().unwrap().pop_front() {
+            if let Some(job) = queue_manager.queue.write().unwrap().pop_front() {
                 thread::spawn(move || {
                     job.run();
                 });
@@ -90,11 +91,17 @@ impl Handler {
         }
     }
 
-    pub fn enqueuer(&mut self) -> Box<dyn Enqueuer + Send + Sync> {
-        Box::new(self.queue_manager.clone())
+    pub fn enqueuer(&mut self) -> Enqueuer {
+        let queue_manager = self.queue_manager.clone();
+        Enqueuer {
+            queue_manager: queue_manager,
+        }
     }
 
-    pub fn listener(&mut self) -> Box<dyn Listener + Send + Sync> {
-        Box::new(self.queue_manager.clone())
+    pub fn listener(&mut self) -> Listener {
+        let queue_manager = self.queue_manager.clone();
+        Listener {
+            queue_manager: queue_manager,
+        }
     }
 }
