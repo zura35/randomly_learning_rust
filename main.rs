@@ -1,3 +1,8 @@
+mod event_sourcing;
+use crate::event_sourcing::order_aggregate;
+use uuid::Uuid;
+use chrono::Utc;
+
 mod state_machine;
 use crate::state_machine::StateMachine;
 
@@ -12,8 +17,60 @@ use std::thread::sleep;
 use std::sync::Arc;
 
 fn main() {
+    run_order_event_sourcing_example();
     run_state_machine_example();
     run_simpler_handler_example();
+}
+
+fn run_order_event_sourcing_example() {
+    let projector = order_aggregate::OrderAggregateProjector::new();
+    let order_id = Uuid::new_v4();
+    let created_event = order_aggregate::OrderEvent {
+        id: Uuid::new_v4(),
+        order_id: order_id,
+        version: 1,
+        created_at: Utc::now(),
+        event_type: order_aggregate::OrderEventType::Created {
+            user_id: Uuid::new_v4(),
+            amount: 100.0,
+        },
+    };
+
+    let updated_event = order_aggregate::OrderEvent {
+        id: Uuid::new_v4(),
+        order_id: order_id,
+        version: 2,
+        created_at: Utc::now(),
+        event_type: order_aggregate::OrderEventType::Updated {
+            amount: 200.0,
+        },
+    };
+
+    let paid_event = order_aggregate::OrderEvent {
+        id: Uuid::new_v4(),
+        order_id: order_id,
+        version: 3,
+        created_at: Utc::now(),
+        event_type: order_aggregate::OrderEventType::Paid,
+    };
+
+    let cancelled_event = order_aggregate::OrderEvent {
+        id: Uuid::new_v4(),
+        order_id: order_id,
+        version: 4,
+        created_at: Utc::now(),
+        event_type: order_aggregate::OrderEventType::Cancelled,
+    };
+
+    let events = vec![
+        created_event,
+        updated_event,
+        paid_event,
+        cancelled_event,
+    ];
+
+    let order = projector.replay(events, 0);
+    println!("INFO: Order: {:?}", order);
 }
 
 fn run_state_machine_example() {
